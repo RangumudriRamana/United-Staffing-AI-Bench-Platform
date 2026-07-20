@@ -1,0 +1,72 @@
+# -----------------------
+# Operating System
+# -----------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------
+# Environment
+# -----------------------
+.env
+.env.local
+.env.production
+
+# -----------------------
+# Python
+# -----------------------
+backend/.venv/
+backend/venv/
+backend/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/.mypy_cache/
+
+# -----------------------
+# Node
+# -----------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# -----------------------
+# Logs
+# -----------------------
+*.log
+logs/
+
+# -----------------------
+# IDE
+# -----------------------
+.vscode/
+.idea/
+
+# -----------------------
+# Database
+# -----------------------
+*.db
+*.sqlite3
+
+# -----------------------
+# Uploads
+# -----------------------
+uploads/
+
+# Keep folder
+!uploads/.gitkeep
+
+# -----------------------
+# Docker
+# -----------------------
+docker/postgres-data/
+
+# -----------------------
+# Coverage
+# -----------------------
+.coverage
+coverage/
+
+# -----------------------
+# Misc
+# -----------------------
+*.tmp
+*.swp

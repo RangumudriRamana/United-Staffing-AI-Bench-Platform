@@ -1,0 +1,42 @@
+from enum import Enum
+
+class SubmissionStatus(str, Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    INTERVIEW_SCHEDULED = "INTERVIEW_SCHEDULED"
+    INTERVIEW_COMPLETED = "INTERVIEW_COMPLETED"
+    OFFER_RECEIVED = "OFFER_RECEIVED"
+    OFFER_ACCEPTED = "OFFER_ACCEPTED"
+    PLACED = "PLACED"
+    REJECTED = "REJECTED"
+    WITHDRAWN = "WITHDRAWN"
+    CLOSED = "CLOSED"
+
+class EmploymentType(str, Enum):
+    C2C = "C2C"
+    W2 = "W2"
+    N1099 = "1099"
+    FULL_TIME = "FULL_TIME"
+
+class InterviewType(str, Enum):
+    TECHNICAL = "TECHNICAL"
+    CULTURAL = "CULTURAL"
+    CLIENT = "CLIENT"
+    MANAGEMENT = "MANAGEMENT"
+
+class InterviewStatus(str, Enum):
+    SCHEDULED = "SCHEDULED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+class OfferStatus(str, Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    DECLINED = "DECLINED"
+    EXPIRED = "EXPIRED"
+
+class PlacementStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    TERMINATED = "TERMINATED"

@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.vscode
+.idea
+
+frontend/dist
+backend/.venv
+uploads
+
+docker/postgres-data

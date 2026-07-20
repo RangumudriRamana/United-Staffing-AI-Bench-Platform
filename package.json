@@ -1,0 +1,18 @@
+{
+  "name": "united-staffing-ai-bench-platform-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "check": "cd frontend && npm run check",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend/src && ..\\..\\.venv\\Scripts\\python -m uvicorn app.main:app --reload --port 3000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "lint": "cd frontend && npm run lint",
+    "format": "cd frontend && npm run format",
+    "generate:api": "cd frontend && npm run generate:api"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

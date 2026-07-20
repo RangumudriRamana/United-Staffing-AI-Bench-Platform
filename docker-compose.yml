@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:16
+
+    container_name: usai_postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: bench_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - ./docker/postgres-data:/var/lib/postgresql/data
+
+  backend:
+
+    build:
+      context: ./backend
+
+    container_name: usai_backend
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      - postgres
+
+    volumes:
+      - ./backend:/app
+
+  frontend:
+
+    build:
+      context: ./frontend
+
+    container_name: usai_frontend
+
+    restart: unless-stopped
+
+    ports:
+      - "5173:5173"
+
+    volumes:
+      - ./frontend:/app
+
+    depends_on:
+      - backend

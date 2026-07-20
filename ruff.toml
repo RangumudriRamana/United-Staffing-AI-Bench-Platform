@@ -1,0 +1,21 @@
+line-length = 100
+target-version = "py312"
+
+exclude = [
+    ".venv",
+    "__pycache__",
+    "alembic",
+]
+
+[lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+]
+
+ignore = [
+    "E501",
+]
