@@ -11,13 +11,13 @@ from app.matching.scoring import PureScoringEngine
 
 class MatchingService:
     """Coordinates aggregate data preloading and drives execution across our pure scoring pipelines."""
-    
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def get_ranked_matches_for_requirement(
-        self, 
-        requirement_public_id: UUID, 
+        self,
+        requirement_public_id: UUID,
         policy: MatchPolicyWeights | None = None
     ) -> list[RankedConsultantResponse]:
         """Loads requirement criteria parameters, maps potential matches, and sorts by score ranking."""
@@ -30,7 +30,7 @@ class MatchingService:
         )
         req_res = await self.db.execute(req_stmt)
         requirement = req_res.scalars().first()
-        
+
         if not requirement:
             raise AppException(status_code=404, message="Target job requirement profile not found.")
 
@@ -51,5 +51,5 @@ class MatchingService:
 
         # 4. Separate Ranking: Sort final output collection descending by absolute score value metrics
         ranked_candidates.sort(key=lambda x: x.scores.overall_score, reverse=True)
-        
+
         return ranked_candidates

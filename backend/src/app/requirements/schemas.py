@@ -1,10 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
-from typing import Any
 from pydantic import BaseModel, Field
 from app.requirements.enums import RequirementStatus, WorkModel, RequirementPriority
-from app.submissions.enums import EmploymentType, DocumentType
+from app.submissions.enums import EmploymentType
+from app.consultants.enums import DocumentType
 
 class CreateRequirementRequest(BaseModel):
     """Payload validating new inbound corporate position specifications."""
@@ -53,6 +53,7 @@ class OwnerReassignmentRequest(BaseModel):
 # --- Response Serialization DTOs ---
 
 class RequirementTechnologyResponse(BaseModel):
+    requirement_id: int
     technology_id: int
     minimum_years: int
     mandatory: bool
@@ -60,6 +61,29 @@ class RequirementTechnologyResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class RequirementDocumentResponse(BaseModel):
+    requirement_id: int
+    document_type: DocumentType
+    mandatory: bool
+    notes: str | None
+
+    class Config:
+        from_attributes = True
+
+class RequirementHistoryResponse(BaseModel):
+    id: int
+    requirement_id: int
+    changed_by: int
+    status: RequirementStatus
+    effective_from: datetime
+    effective_until: datetime | None
+    reason: str | None
+    notes: str | None
+
+    class Config:
+        from_attributes = True
+
 
 class RequirementResponse(BaseModel):
     """Unified serialization model detailing full aggregate trees for screens."""
@@ -85,7 +109,21 @@ class RequirementResponse(BaseModel):
     
     # Eagerly loaded child tables
     technologies: list[RequirementTechnologyResponse] = []
-    history: list[Any] = []
+    history: list[RequirementHistoryResponse] = []
 
     class Config:
         from_attributes = True
+
+class RequirementSearchCriteria(BaseModel):
+    """
+    Search filters used for listing requirements.
+    """
+
+    search: str | None = None
+    status: RequirementStatus | None = None
+    employment_type: EmploymentType | None = None
+    work_model: WorkModel | None = None
+    priority: RequirementPriority | None = None
+    owner_recruiter_id: int | None = None
+    vendor_id: int | None = None
+    client_id: int | None = None

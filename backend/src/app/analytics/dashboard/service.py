@@ -1,6 +1,6 @@
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from app.analytics.service import MetricsEngineService
 from app.analytics.models import BusinessEvent
@@ -60,7 +60,7 @@ class RecruiterDashboardService:
         stalled pipeline submissions or candidate gaps.
         """
         items = []
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
 
         # Rule Target 1: Intercept submissions that have stalled in review for over 5 days
         stalled_stmt = (

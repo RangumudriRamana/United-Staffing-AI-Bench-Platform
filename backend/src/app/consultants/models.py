@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from decimal import Decimal
-from sqlalchemy import String, Integer, Boolean, Date, Numeric, ForeignKey, Enum as SQLEnum, UniqueConstraint, Index
+from sqlalchemy import String, DateTime, Integer, Boolean, Date, Numeric, ForeignKey, Enum as SQLEnum, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -89,7 +89,7 @@ class Consultant(Base, PrimaryKeyMixin, PublicIdMixin, TimestampMixin, SoftDelet
     availability_status: Mapped[AvailabilityStatus] = mapped_column(
         SQLEnum(AvailabilityStatus), default=AvailabilityStatus.AVAILABLE_NOW, nullable=False
     )
-    available_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    availability_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     rate_type: Mapped[RateType] = mapped_column(SQLEnum(RateType), default=RateType.HOURLY, nullable=False)
     expected_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
 
@@ -161,7 +161,6 @@ class Document(Base, PrimaryKeyMixin, PublicIdMixin, TimestampMixin, SoftDeleteM
     # --- Structural ORM Relationships ---
     consultant = relationship("Consultant", back_populates="documents")
 
-from sqlalchemy import DateTime
 
 class ConsultantMarketingHistory(Base, PrimaryKeyMixin, PublicIdMixin, TimestampMixin):
     """
@@ -174,8 +173,15 @@ class ConsultantMarketingHistory(Base, PrimaryKeyMixin, PublicIdMixin, Timestamp
     changed_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
     status: Mapped[MarketingStatus] = mapped_column(SQLEnum(MarketingStatus), nullable=False)
-    effective_from: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    effective_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    effective_from: Mapped[datetime] = mapped_column(
+    DateTime(timezone=True),
+    nullable=False,
+    )
+
+    effective_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)

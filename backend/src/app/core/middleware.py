@@ -60,6 +60,9 @@ class TelemetryPerimeterMiddleware(BaseHTTPMiddleware):
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             response.headers["X-Correlation-ID"] = correlation_token
             response.headers["X-Request-ID"] = request_id
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             
             logger.info(
                 f"Outbound HTTP Response Context Dispatched",

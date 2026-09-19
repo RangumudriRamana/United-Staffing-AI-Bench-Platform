@@ -1,11 +1,12 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from sqlalchemy import String, Integer, ForeignKey, Enum as SQLEnum, Numeric, DateTime, Boolean, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 from app.database.mixins import PrimaryKeyMixin, PublicIdMixin, TimestampMixin
-from app.submissions.enums import EmploymentType, DocumentType
+from app.submissions.enums import EmploymentType
+from app.consultants.enums import DocumentType
 from app.requirements.enums import RequirementStatus, WorkModel, RequirementPriority
 
 class Requirement(Base, PrimaryKeyMixin, PublicIdMixin, TimestampMixin):
@@ -42,9 +43,16 @@ class Requirement(Base, PrimaryKeyMixin, PublicIdMixin, TimestampMixin):
     positions: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
     # --- Dates & Milestones ---
-    received_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    target_start_date: Mapped[date | None] = mapped_column(DateTime, nullable=True)
+    received_date: Mapped[datetime] = mapped_column(
+    DateTime(timezone=True),
+    default=lambda: datetime.now(timezone.utc),
+    nullable=False,
+    )
 
+    target_start_date: Mapped[date | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     # --- Structural ORM Connections ---
     technologies = relationship("RequirementTechnology", back_populates="requirement", cascade="all, delete-orphan")
     documents = relationship("RequirementDocument", back_populates="requirement", cascade="all, delete-orphan")
@@ -58,7 +66,7 @@ class RequirementTechnology(Base, PrimaryKeyMixin, TimestampMixin):
 
     requirement_id: Mapped[int] = mapped_column(ForeignKey("requirements.id", ondelete="CASCADE"), nullable=False)
     technology_id: Mapped[int] = mapped_column(ForeignKey("technologies.id", ondelete="RESTRICT"), nullable=False)
-    
+
     minimum_years: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     mandatory: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -85,9 +93,16 @@ class RequirementHistory(Base, PrimaryKeyMixin, TimestampMixin):
     requirement_id: Mapped[int] = mapped_column(ForeignKey("requirements.id", ondelete="CASCADE"), nullable=False)
     changed_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     status: Mapped[RequirementStatus] = mapped_column(SQLEnum(RequirementStatus), nullable=False)
-    
-    effective_from: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    effective_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    effective_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    effective_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
 

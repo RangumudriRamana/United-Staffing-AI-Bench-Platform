@@ -3,13 +3,20 @@ from typing import Any
 from fastapi import APIRouter, Depends, status
 
 from app.database.base import get_db_session
-from app.auth.guards import RequireRole, get_current_user
+from app.auth.dependencies import RequireRole, get_current_user
 from app.auth.enums import UserRole
 from app.shared.schemas import PaginationParams, SortParams
 from app.requirements.service import RequirementService
 from app.requirements.schemas import (
-    CreateRequirementRequest, RequirementSearchCriteria, RequirementResponse,
-    RequirementTransitionRequest, RequirementTechnologyRequest, RequirementDocumentRequest, OwnerReassignmentRequest
+    CreateRequirementRequest,
+    RequirementSearchCriteria,
+    RequirementResponse,
+    RequirementTransitionRequest,
+    RequirementTechnologyRequest,
+    RequirementTechnologyResponse,
+    RequirementDocumentRequest,
+    RequirementDocumentResponse,
+    OwnerReassignmentRequest,
 )
 
 router = APIRouter(prefix="/requirements", tags=["Job Requirements Management"])
@@ -71,7 +78,11 @@ async def transition_requirement_lifecycle_state(
     )
 
 
-@router.post("/{public_id}/technologies", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{public_id}/technologies",
+    response_model=RequirementTechnologyResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def bind_technology_constraint(
     public_id: UUID,
     payload: RequirementTechnologyRequest,
@@ -88,7 +99,11 @@ async def bind_technology_constraint(
     )
 
 
-@router.post("/{public_id}/documents", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{public_id}/documents",
+    response_model=RequirementDocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def bind_compliance_document_requirement(
     public_id: UUID,
     payload: RequirementDocumentRequest,

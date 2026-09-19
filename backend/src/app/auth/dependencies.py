@@ -2,9 +2,12 @@ from uuid import UUID
 from fastapi import Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 from app.auth.enums import Role
+from app.auth.models import AuthSession
 from app.auth.security import decode_access_token
 from app.auth.service import AuthenticationService
 from app.core.exceptions import AppException
@@ -37,6 +40,32 @@ async def get_current_user(
             )
         
         public_id = UUID(public_id_str)
+
+        jti = payload.get("jti")
+
+        if not jti:
+            raise AppException(
+                message="Could not validate credentials: token identifier missing.",
+                error_code="UNAUTHORIZED",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        result = await db.execute(
+            select(AuthSession).where(
+                AuthSession.jti == jti,
+                AuthSession.user_id.is_not(None),
+                AuthSession.revoked_at.is_(None),
+            )
+        )
+
+        session = result.scalar_one_or_none()
+
+        if session is None:
+            raise AppException(
+                message="Session is invalid or has been revoked.",
+                error_code="UNAUTHORIZED",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
         
     except (PyJWTError, ValueError):
         raise AppException(
@@ -51,6 +80,56 @@ async def get_current_user(
     
     return user
 
+async def get_current_session(
+    token: HTTPAuthorizationCredentials = Depends(security_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> tuple[User, AuthSession]:
+    """
+    Resolves the authenticated user and active server-side session.
+    Used by endpoints that need access to the current JWT session.
+    """
+    try:
+        payload = decode_access_token(token.credentials)
+        public_id_str = payload.get("sub")
+        jti = payload.get("jti")
+
+        if not public_id_str or not jti:
+            raise AppException(
+                message="Could not validate credentials.",
+                error_code="UNAUTHORIZED",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        public_id = UUID(public_id_str)
+
+    except (PyJWTError, ValueError):
+        raise AppException(
+            message="Could not validate credentials: token is invalid or expired.",
+            error_code="UNAUTHORIZED",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    service = AuthenticationService(db)
+    user = await service.get_current_user(public_id)
+
+    result = await db.execute(
+        select(AuthSession).where(
+            AuthSession.jti == jti,
+            AuthSession.user_id == user.id,
+            AuthSession.revoked_at.is_(None),
+        )
+    )
+
+    session = result.scalar_one_or_none()
+
+    if session is None:
+        raise AppException(
+            message="Session is invalid or has been revoked.",
+            error_code="UNAUTHORIZED",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    return user, session
 
 class RequireRole:
     """

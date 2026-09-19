@@ -1,6 +1,7 @@
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppException
@@ -8,7 +9,7 @@ from app.requirements.models import Requirement, RequirementHistory, Requirement
 from app.requirements.repositories import RequirementRepository
 from app.requirements.schemas import RequirementSearchCriteria
 from app.requirements.enums import RequirementStatus, RequirementPriority
-from app.submissions.enums import DocumentType
+from app.consultants.enums import DocumentType
 from app.shared.schemas import PaginationParams, SortParams
 
 class RequirementService:
@@ -20,11 +21,37 @@ class RequirementService:
         self.db = db
         self.repo = RequirementRepository(db)
 
-    async def create_requirement(self, payload: dict, current_user_id: int) -> Requirement:
+    async def create_requirement(
+        self,
+        payload: dict,
+        current_user_id: int
+    ) -> Requirement:
         """Initializes raw position profiles and registers the baseline log ledger entries."""
-        if payload.get("rate_min") and payload.get("rate_max"):
+
+        # Prevent duplicate job codes
+        if payload.get("job_code"):
+            existing_requirement = await self.db.scalar(
+                select(Requirement).where(
+                    Requirement.job_code == payload["job_code"]
+                )
+            )
+
+            if existing_requirement:
+                raise AppException(
+                    status_code=409,
+                    message=f"Requirement with job code '{payload['job_code']}' already exists.",
+                )
+
+        # Validate billing range
+        if (
+            payload.get("rate_min") is not None
+            and payload.get("rate_max") is not None
+        ):
             if payload["rate_min"] > payload["rate_max"]:
-                raise AppException(status_code=400, message="Minimum billing range limits cannot cross maximum boundaries.")
+                raise AppException(
+                    status_code=400,
+                    message="Minimum billing range limits cannot cross maximum boundaries."
+                )
 
         # Bind operational owner attributes
         payload["owner_recruiter_id"] = current_user_id
@@ -33,9 +60,9 @@ class RequirementService:
 
         try:
             new_req = self.repo.create(**payload)
-            await self.db.flush()  # Capture system primary key IDs cleanly
 
-            # Initialize tracking segment row logs
+            await self.db.flush()
+
             initial_history = RequirementHistory(
                 requirement_id=new_req.id,
                 changed_by=current_user_id,
@@ -43,20 +70,33 @@ class RequirementService:
                 effective_from=datetime.now(timezone.utc),
                 reason="Initial requirement profile entry created."
             )
+
             self.db.add(initial_history)
-            
+
             await self.db.commit()
-            return new_req
+
+            created_requirement = await self.repo.get_by_public_id(
+                new_req.public_id,
+                eager_load_details=True,
+            )
+
+            if not created_requirement:
+                raise AppException(
+                    status_code=404,
+                    message="Requirement record not found after creation.",
+                )
+
+            return created_requirement
+
         except Exception as failure:
             await self.db.rollback()
             raise failure
-
     async def transition_requirement_status(
-        self, 
-        public_id: UUID, 
-        target_status: RequirementStatus, 
-        user_id: int, 
-        reason: str | None = None, 
+        self,
+        public_id: UUID,
+        target_status: RequirementStatus,
+        user_id: int,
+        reason: str | None = None,
         notes: str | None = None
     ) -> Requirement:
         """Enforces workflow traversal validation paths, closing past log layers atomically."""
@@ -66,7 +106,18 @@ class RequirementService:
 
         old_status = requirement.status
         if old_status == target_status:
-            return requirement
+            refreshed_requirement = await self.repo.get_by_public_id(
+                requirement.public_id,
+                eager_load_details=True,
+            )
+
+            if not refreshed_requirement:
+                raise AppException(
+                    status_code=404,
+                    message="Requirement record not found.",
+                )
+
+            return refreshed_requirement
 
         # Enforce valid sourcing progression lifecycle phases
         allowed_graph = {
@@ -83,7 +134,7 @@ class RequirementService:
 
         if target_status not in allowed_graph.get(old_status, []):
             raise AppException(
-                status_code=400, 
+                status_code=400,
                 message=f"Invalid sourcing machine trajectory: Transition from {old_status.value} to {target_status.value} is unauthorized."
             )
 
@@ -109,17 +160,30 @@ class RequirementService:
 
             requirement.status = target_status
             await self.db.commit()
-            return requirement
+
+            # Reload the aggregate with all response relationships eagerly loaded.
+            updated_requirement = await self.repo.get_by_public_id(
+                public_id,
+                eager_load_details=True
+            )
+
+            if not updated_requirement:
+                raise AppException(
+                    status_code=404,
+                    message="Requirement record not found after transition."
+                )
+
+            return updated_requirement
         except Exception as error:
             await self.db.rollback()
             raise error
 
     async def assign_technology(
-        self, 
-        public_id: UUID, 
-        technology_id: int, 
-        minimum_years: int, 
-        mandatory: bool, 
+        self,
+        public_id: UUID,
+        technology_id: int,
+        minimum_years: int,
+        mandatory: bool,
         notes: str | None = None
     ) -> RequirementTechnology:
         """Binds normalized target skills catalog links straight into the open job profile."""
@@ -147,10 +211,10 @@ class RequirementService:
         return new_tech_link
 
     async def assign_required_document(
-        self, 
-        public_id: UUID, 
-        document_type: DocumentType, 
-        mandatory: bool, 
+        self,
+        public_id: UUID,
+        document_type: DocumentType,
+        mandatory: bool,
         notes: str | None = None
     ) -> RequirementDocument:
         """Maps prerequisite document compliance criteria directly into position footprints."""
@@ -180,7 +244,19 @@ class RequirementService:
 
         requirement.owner_recruiter_id = new_owner_id
         await self.db.commit()
-        return requirement
+
+        updated_requirement = await self.repo.get_by_public_id(
+            public_id,
+            eager_load_details=True,
+        )
+
+        if not updated_requirement:
+            raise AppException(
+                status_code=404,
+                message="Requirement record not found after owner reassignment.",
+            )
+
+        return updated_requirement
 
     async def get_requirement(self, public_id: UUID) -> Requirement:
         """Fetches unified multi-tier child details trees securely via repository pipelines."""

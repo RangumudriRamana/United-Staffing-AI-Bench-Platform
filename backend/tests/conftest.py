@@ -3,7 +3,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
-from app.database.session import get_db
+from app.core.dependencies import get_db
 
 # Explicitly import fixtures to make them globally accessible across all suite test files
 from tests.fixtures.database import db_session, prepare_database

@@ -6,7 +6,7 @@ from app.auth.security import create_access_token, decode_access_token, hash_pas
 
 
 class TestSecurityUtilities:
-    
+
     def test_password_hashing_and_verification(self):
         # Arrange
         plaintext_password = "SuperSecurePassword123!"
@@ -38,7 +38,7 @@ class TestSecurityUtilities:
         user_id = str(uuid4())
 
         # Act: Pass the string directly as the subject
-        token = create_access_token(user_id)
+        token, _ = create_access_token(user_id)
         decoded_payload = decode_access_token(token)
 
         # Assert
@@ -49,8 +49,8 @@ class TestSecurityUtilities:
         # Arrange
         user_id = str(uuid4())
         # Pass the string directly
-        token = create_access_token(user_id)
-        
+        token, _ = create_access_token(user_id)
+
         # Act
         tampered_token = token[:-3] + "xyz"
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, ForeignKey, Enum as SQLEnum, Boolean, DateTime
+from sqlalchemy import String, Integer, ForeignKey, Enum as SQLEnum, Boolean, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -23,6 +23,7 @@ class Vendor(Base, PrimaryKeyMixin, PublicIdMixin, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"),nullable=True,)
 
     # --- Structural ORM Connections ---
     contacts = relationship("VendorContact", back_populates="vendor", cascade="all, delete-orphan")
@@ -81,6 +82,10 @@ class Client(Base, PrimaryKeyMixin, PublicIdMixin, TimestampMixin):
     # --- Structural ORM Connections ---
     vendor = relationship("Vendor", back_populates="clients")
     submissions = relationship("Submission", back_populates="client")
+
+    @property
+    def vendor_public_id(self):
+        return self.vendor.public_id if self.vendor else None
 
     __table_args__ = (
         # Localized Uniqueness Guard: Enforce unique names per vendor sandbox

@@ -45,7 +45,7 @@ class TaskService:
             return task
 
         task.status = TaskStatus.COMPLETED
-        task.completed_at = datetime.now(timezone.utc)
+        task.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.commit()
         return task
 

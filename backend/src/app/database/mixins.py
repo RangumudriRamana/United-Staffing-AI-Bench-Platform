@@ -1,13 +1,10 @@
-from uuid import UUID
-from sqlalchemy import Uuid
-from app.core.identifiers import generate_public_id
 from datetime import datetime, timezone
+from uuid import UUID
 
-from sqlalchemy import DateTime
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Boolean
+from sqlalchemy import Boolean, DateTime, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.identifiers import generate_public_id
 
 def utc_now() -> datetime:
     """Return the current UTC time."""

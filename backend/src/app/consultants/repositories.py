@@ -1,7 +1,9 @@
 from typing import Any
 from uuid import UUID
+
 from sqlalchemy import select, exists, Select
 from sqlalchemy.orm import joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.shared.repository import BaseRepository
 from app.consultants.models import Consultant
@@ -31,14 +33,22 @@ class ConsultantFilters:
 
 
 class ConsultantRepository(BaseRepository[Consultant]):
-    """
-    Handles optimized database persistence operations for the Consultant aggregate root.
-    Strictly isolated from business rules, HTTP states, and incoming DTO handling layers.
-    """
+
+    def __init__(self, db: AsyncSession) -> None:
+        super().__init__(db, Consultant)
+
+    def create(self, **kwargs) -> Consultant:
+        consultant = Consultant(**kwargs)
+        self.db.add(consultant)
+        return consultant
 
     @property
     def model_cls(self) -> type[Consultant]:
         return Consultant
+    """
+    Handles optimized database persistence operations for the Consultant aggregate root.
+    Strictly isolated from business rules, HTTP states, and incoming DTO handling layers.
+    """
 
     # --- 1. Identity Lookups ---
 

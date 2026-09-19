@@ -1,49 +1,16 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { fileURLToPath, URL } from 'node:url';
-import type { IncomingMessage } from 'node:http';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import path from "node:path";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      '/consultants': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        bypass: (req: IncomingMessage) => {
-          if (req.headers.accept?.includes('text/html')) {
-            return '/index.html';
-          }
-        },
-      },
-      '/requirements': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        bypass: (req: IncomingMessage) => {
-          if (req.headers.accept?.includes('text/html')) {
-            return '/index.html';
-          }
-        },
-      },
-      '/submissions': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        bypass: (req: IncomingMessage) => {
-          if (req.headers.accept?.includes('text/html')) {
-            return '/index.html';
-          }
-        },
-      },
-      '/auth': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 });

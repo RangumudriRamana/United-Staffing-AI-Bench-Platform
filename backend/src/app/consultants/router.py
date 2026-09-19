@@ -8,7 +8,8 @@ from app.consultants.schemas import (
     UpdateConsultantRequest,
     ConsultantResponse,
     ConsultantFilterParams,
-    ConsultantStatusTransitionRequest
+    ConsultantStatusTransitionRequest,
+    ConsultantMarketingHistoryResponse,
 )
 from app.consultants.dependencies import get_consultant_service
 from app.consultants.service import ConsultantService
@@ -18,6 +19,23 @@ from app.auth.enums import UserRole
 
 router = APIRouter(prefix="/consultants", tags=["Consultants"])
 
+@router.get(
+    "/{public_id}/marketing/history",
+    response_model=list[ConsultantMarketingHistoryResponse],
+    dependencies=[Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECRUITER]))]
+)
+async def get_consultant_marketing_history(
+    public_id: UUID,
+    service: ConsultantService = Depends(get_consultant_service)
+) -> Any:
+    """
+    Returns the consultant's complete marketing lifecycle history,
+    ordered from the most recent transition to the oldest.
+    """
+    print("HTTP HISTORY PUBLIC ID:", public_id)
+    print("HTTP SERVICE DB ID:", id(service.db))
+
+    return await service.get_marketing_history(public_id)
 
 @router.post(
     "",
@@ -90,10 +108,14 @@ async def update_consultant(
 )
 async def archive_consultant(
     public_id: UUID,
-    service: ConsultantService = Depends(get_consultant_service)
+    service: ConsultantService = Depends(get_consultant_service),
+    current_user: Any = Depends(get_current_user)
 ) -> None:
     """Restricted administrative endpoint applying a logical mask string to execute soft deletions."""
-    await service.archive_consultant(public_id)
+    await service.archive_consultant(
+        public_id,
+        current_user_id=current_user.id
+    )
 
 
 @router.post(

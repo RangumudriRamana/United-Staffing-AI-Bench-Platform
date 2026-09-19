@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, get_current_session
 from app.auth.schemas import (
     AuthUser,
     CurrentUserResponse,
@@ -15,7 +15,7 @@ from app.core.responses import ApiResponse
 from app.database.session import get_db
 from app.models.user import User
 
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post(
@@ -80,4 +80,30 @@ async def get_me(
         success=True,
         message="Current user profile retrieved successfully.",
         data=CurrentUserResponse(user=AuthUser.model_validate(current_user)),
+    )
+
+@router.post(
+    "/logout",
+    response_model=ApiResponse[dict],
+    status_code=status.HTTP_200_OK,
+)
+async def logout(
+    current_session=Depends(get_current_session),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Revokes the current authentication session and records a logout audit event.
+    """
+    current_user, session = current_session
+
+    service = AuthenticationService(db)
+    await service.logout(
+        current_user=current_user,
+        session=session,
+    )
+
+    return ApiResponse(
+        success=True,
+        message="Logout successful.",
+        data={},
     )

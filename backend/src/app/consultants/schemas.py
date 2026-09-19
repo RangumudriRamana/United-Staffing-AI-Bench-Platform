@@ -2,7 +2,6 @@ import re
 from typing import Literal
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 
@@ -129,3 +128,15 @@ class ConsultantStatusTransitionRequest(BaseModel):
     target_status: MarketingStatus
     reason: str | None = Field(None, max_length=255, description="Contextual reason for the state transition.")
     notes: str | None = Field(None, max_length=500, description="Supplementary operational feedback notes.")
+
+class ConsultantMarketingHistoryResponse(BaseModel):
+    """Read-only response contract for chronological consultant marketing history."""
+    public_id: UUID
+    status: MarketingStatus
+    effective_from: datetime
+    effective_until: datetime | None = None
+    changed_by: int
+    reason: str | None = None
+    notes: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)

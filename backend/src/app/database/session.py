@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -11,6 +13,8 @@ settings = get_settings()
 engine = create_async_engine(
     settings.database_url,
     echo=settings.database_echo,
+    pool_pre_ping=True,
+    pool_recycle=1800,
 )
 
 SessionLocal = async_sessionmaker(
@@ -19,10 +23,10 @@ SessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
-async def get_db():
-    """
-    Dependency generator that yields an active async database session 
-    and ensures it closes cleanly after the request is finished.
-    """
-    async with SessionLocal() as session:
-        yield session
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    try:
+        async with SessionLocal() as session:
+            yield session
+    except Exception:
+        await session.rollback()
+        raise

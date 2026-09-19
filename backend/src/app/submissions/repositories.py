@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.submissions.models import Submission
-from app.submissions.schemas import SubmissionSearchCriteria
+from app.submissions.schemas import SubmissionSearchFilters
 from app.submissions.search import build_submission_search_pipeline
 from app.shared.schemas import PaginationParams, SortParams, PagedResponse
 from app.shared.query_builder import paginate_repository_query
@@ -31,30 +31,47 @@ class SubmissionRepository:
         if eager_load_details:
             # Complete Detail View Loading Strategy: Fetch deep child tables via unified batch selectinload queries
             stmt = stmt.options(
+                selectinload(Submission.consultant),
+                selectinload(Submission.vendor),
+                selectinload(Submission.vendor_contact),
+                selectinload(Submission.client),
+                selectinload(Submission.requirement),
                 selectinload(Submission.history),
                 selectinload(Submission.interviews),
                 selectinload(Submission.feedback),
                 selectinload(Submission.offers),
-                selectinload(Submission.placements)
+                selectinload(Submission.placements),
             )
             
         result = await self.db.execute(stmt)
         return result.scalars().first()
 
-    async def exists_active_submission(self, consultant_id: int, client_name: str, job_title: str) -> bool:
-        """Helper to safely check duplicate submission attempts across active candidate logs."""
-        stmt = select(exists().where(
-            Submission.consultant_id == consultant_id,
-            Submission.client_name.ilike(client_name.strip()),
-            Submission.job_title.ilike(job_title.strip()),
-            Submission.deleted_at == None
-        ))
+    async def exists_active_submission(
+        self,
+        consultant_id: int,
+        client_id: int,
+        job_title: str,
+    ) -> bool:
+        """
+        Checks whether the consultant already has an active submission
+        for the same client and job title.
+        """
+
+        stmt = select(
+            exists().where(
+                Submission.consultant_id == consultant_id,
+                Submission.client_id == client_id,
+                Submission.job_title == job_title,
+                Submission.deleted_at.is_(None),
+            )
+        )
+
         result = await self.db.execute(stmt)
         return result.scalar() or False
 
     async def list_submissions_paginated(
         self,
-        criteria: SubmissionSearchCriteria,
+        criteria: SubmissionSearchFilters,
         pagination: PaginationParams,
         sort: SortParams
     ) -> tuple[list[Submission], any]:

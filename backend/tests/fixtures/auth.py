@@ -1,28 +1,38 @@
-import pytest
-from app.auth.security import create_access_token
+import pytest_asyncio
+from datetime import datetime, timezone
+
+from app.auth.models import AuthSession
+from app.auth.security import create_access_token, decode_access_token
 from app.models.user import User
 
 
-def create_test_token(user: User) -> str:
-    """Programmatically encodes a real cryptographic JWT token payload for a target user object."""
-    # Pass the public_id string directly as the subject parameter
-    return create_access_token(str(user.public_id))
+async def create_test_session(user: User, db_session) -> str:
+    """Create a valid JWT and matching active AuthSession for API tests."""
+    token, jti = create_access_token(str(user.public_id))
+    payload = decode_access_token(token)
+
+    session = AuthSession(
+        user_id=user.id,
+        jti=jti,
+        expires_at=datetime.fromtimestamp(
+            payload["exp"],
+            tz=timezone.utc,
+        ),
+    )
+
+    db_session.add(session)
+    await db_session.flush()
+
+    return token
 
 
-def authorization_header(token: str) -> dict[str, str]:
-    """Generates the standard compliant authorization mapping dictionary."""
+@pytest_asyncio.fixture
+async def user_headers(sample_user, db_session):
+    token = await create_test_session(sample_user, db_session)
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.fixture
-def user_headers(sample_user):
-    """Instantly delivers an active bearer token authorization header mapping for a normal recruiter."""
-    token = create_test_token(sample_user)
-    return authorization_header(token)
-
-
-@pytest.fixture
-def admin_headers(sample_admin):
-    """Instantly delivers an active bearer token authorization header mapping for an administrative profile."""
-    token = create_test_token(sample_admin)
-    return authorization_header(token)
+@pytest_asyncio.fixture
+async def admin_headers(sample_admin, db_session):
+    token = await create_test_session(sample_admin, db_session)
+    return {"Authorization": f"Bearer {token}"}
