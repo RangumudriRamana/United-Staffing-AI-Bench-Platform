@@ -1,6 +1,7 @@
 import { Bell } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useAuth } from "@/auth/useAuth";
 
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -35,6 +36,8 @@ function getPageTitle(pathname: string) {
 export default function Header() {
   const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const { user } = useAuth();
 
   const pageTitle = getPageTitle(location.pathname);
 
@@ -170,11 +173,13 @@ export default function Header() {
         {/* USER */}
         <div className="text-right">
           <p className="font-medium">
-            Admin
+            {user
+              ? `${user.first_name} ${user.last_name}`
+              : "User"}
           </p>
 
-          <p className="text-sm text-gray-500">
-            United Staffing
+          <p className="text-sm capitalize text-gray-500">
+            {user?.role ?? "User"}
           </p>
         </div>
       </div>

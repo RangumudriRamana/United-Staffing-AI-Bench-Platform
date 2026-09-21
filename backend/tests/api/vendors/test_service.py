@@ -900,3 +900,76 @@ async def test_archive_client_error_rolls_back():
         )
 
     db.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_update_vendor_same_name_skips_duplicate_check():
+    service, db = make_service()
+
+    vendor = make_vendor()
+    service.vendor_repo.get_by_public_id.return_value = vendor
+
+    payload = VendorUpdateRequest(
+        name="  acme   vendor ",
+        website="  https://updated.com ",
+        notes="  Updated notes ",
+    )
+
+    result = await service.update_vendor(
+        vendor.public_id,
+        payload,
+        current_user_id=20,
+    )
+
+    assert result is vendor
+    assert vendor.name == "Acme Vendor"
+    assert vendor.website == "https://updated.com"
+    assert vendor.notes == "Updated notes"
+    service.vendor_repo.exists_duplicate_name.assert_not_awaited()
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_update_vendor_without_notes_preserves_notes():
+    service, db = make_service()
+
+    vendor = make_vendor()
+    vendor.notes = "Existing notes"
+    service.vendor_repo.get_by_public_id.return_value = vendor
+
+    payload = VendorUpdateRequest(
+        website="  https://updated.com ",
+    )
+
+    result = await service.update_vendor(
+        vendor.public_id,
+        payload,
+        current_user_id=20,
+    )
+
+    assert result is vendor
+    assert vendor.website == "https://updated.com"
+    assert vendor.notes == "Existing notes"
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_archive_vendor_app_exception_rolls_back():
+    service, db = make_service()
+
+    vendor = make_vendor()
+    service.vendor_repo.get_by_public_id.return_value = vendor
+
+    service.audit_service.get_next_entity_version.side_effect = AppException(
+        status_code=400,
+        message="Audit failure",
+    )
+
+    with pytest.raises(AppException) as exc:
+        await service.archive_vendor(
+            vendor.public_id,
+            current_user_id=30,
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.message == "Audit failure"
+    db.rollback.assert_awaited_once()

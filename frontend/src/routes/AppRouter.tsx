@@ -27,6 +27,8 @@ const MarketingWorkspacePage = lazy(() => import("@/pages/marketing/MarketingWor
 const TasksPage = lazy(() => import("@/pages/tasks/TasksPage"));
 const PlannerPage = lazy(() => import("../pages/planner/PlannerPage"));
 
+const SettingsPage = lazy(() => import("../pages/settings/SettingsPage"));
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -103,6 +105,10 @@ export default function AppRouter() {
           <Route
             path="/tasks"
             element={<TasksPage />}
+          />
+          <Route
+            path="/settings"
+            element={<SettingsPage />}
           />
 
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.database.base import get_db_session  # standard session provider
 from app.auth.dependencies import RequireRole, get_current_user
-from app.auth.enums import UserRole
+from app.auth.enums import Role
 from app.shared.schemas import PaginationParams, SortParams
 from app.submissions.service import SubmissionService
 from app.submissions.schemas import (
@@ -33,7 +33,7 @@ async def create_new_submission(
     payload: SubmissionCreateRequest,
     service: SubmissionService = Depends(get_submission_service),
     current_user: Any = Depends(get_current_user),
-    _role = Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECRUITER]))
+    _role = Depends(RequireRole([Role.ADMIN, Role.MANAGER, Role.RECRUITER]))
 ) -> Any:
     """Ingests data payloads, registers initial draft tracking rows via security boundaries."""
     return await service.create_submission(payload.model_dump(), current_user.id)
@@ -45,7 +45,7 @@ async def list_pipeline_submissions(
     pagination: PaginationParams = Depends(),
     sort: SortParams = Depends(),
     service: SubmissionService = Depends(get_submission_service),
-    _role = Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECRUITER]))
+    _role = Depends(RequireRole([Role.ADMIN, Role.MANAGER, Role.RECRUITER]))
 ) -> Any:
     """Delegates paginated collection lookups straight into the optimized pipeline repositories."""
     results, _metadata = await service.list_submissions(criteria, pagination, sort)
@@ -56,7 +56,7 @@ async def list_pipeline_submissions(
 async def get_detailed_submission_summary(
     public_id: UUID,
     service: SubmissionService = Depends(get_submission_service),
-    _role = Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECRUITER]))
+    _role = Depends(RequireRole([Role.ADMIN, Role.MANAGER, Role.RECRUITER]))
 ) -> Any:
     """Leverages selectinload configurations to serve comprehensive sub-entity trees."""
     return await service.get_submission(public_id)
@@ -68,7 +68,7 @@ async def transition_pipeline_state(
     payload: SubmissionTransitionRequest,
     service: SubmissionService = Depends(get_submission_service),
     current_user: Any = Depends(get_current_user),
-    _role = Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECRUITER]))
+    _role = Depends(RequireRole([Role.ADMIN, Role.MANAGER, Role.RECRUITER]))
 ) -> Any:
     """Advances pipeline statuses via explicit Finite State Machine rules matrices."""
     return await service.transition_submission_status(
@@ -86,7 +86,7 @@ async def schedule_submission_interview_round(
     payload: InterviewCreateRequest,
     service: SubmissionService = Depends(get_submission_service),
     current_user: Any = Depends(get_current_user),
-    _role = Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECRUITER]))
+    _role = Depends(RequireRole([Role.ADMIN, Role.MANAGER, Role.RECRUITER]))
 ) -> Any:
     """Appends explicit sequential interview tracking nodes and advances pipeline markers."""
     return await service.schedule_interview(
@@ -110,7 +110,7 @@ async def issue_client_offer_terms(
     payload: OfferCreateRequest,
     service: SubmissionService = Depends(get_submission_service),
     current_user: Any = Depends(get_current_user),
-    _role = Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECRUITER]))
+    _role = Depends(RequireRole([Role.ADMIN, Role.MANAGER, Role.RECRUITER]))
 ) -> Any:
     """Validates financial invariants and generates client proposal options parameters."""
     return await service.create_offer(
@@ -134,7 +134,7 @@ async def convert_offer_to_active_placement(
     payload: PlacementCreateRequest,
     service: SubmissionService = Depends(get_submission_service),
     current_user: Any = Depends(get_current_user),
-    _role = Depends(RequireRole([UserRole.ADMIN, UserRole.MANAGER]))
+    _role = Depends(RequireRole([Role.ADMIN, Role.MANAGER]))
 ) -> Any:
     """
     Triggers multi-aggregate transaction executions: updates submission status, 

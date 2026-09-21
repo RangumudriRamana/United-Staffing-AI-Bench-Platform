@@ -1,10 +1,10 @@
 import pytest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.ai_matching.service import AIMatchingService
-from app.ai_matching.schemas import BatchMatchRequest
+from app.ai_matching.schemas import BatchMatchRequest, BatchMatchResponse
 
 
 def make_service():
@@ -311,3 +311,17 @@ async def test_get_history_without_job_code():
     response = await service.get_history()
 
     assert response.history[0].requirement_name == "Python Developer"
+
+@pytest.mark.asyncio
+async def test_match_delegates_to_batch_match():
+    service = make_service()
+    request = BatchMatchRequest(requirement_id=uuid4())
+
+    expected = BatchMatchResponse(matches=[])
+
+    service.batch_match = AsyncMock(return_value=expected)
+
+    result = await service.match(request)
+
+    service.batch_match.assert_awaited_once_with(request)
+    assert result == expected

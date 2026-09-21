@@ -1009,3 +1009,213 @@ async def test_create_placement_consultant_lookup_failure_rolls_back():
         == "Consultant linked to submission was not found."
     )
     db.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_create_submission_consultant_not_found():
+    service, _ = make_service()
+
+    service.db.scalar.return_value = None
+
+    payload = {
+        "consultant_public_id": "missing-consultant",
+        "vendor_public_id": "vendor-public-id",
+        "client_public_id": "client-public-id",
+        "job_title": "Java Developer",
+        "rate": Decimal("75"),
+    }
+
+    with pytest.raises(AppException) as exc_info:
+        await service.create_submission(payload, current_user_id=99)
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.message == "Consultant not found."
+
+
+@pytest.mark.asyncio
+async def test_transition_invalid_status_path():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.DRAFT)
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.transition_submission_status(
+            public_id=submission.public_id,
+            target_status=SubmissionStatus.REJECTED,
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Cannot transition from" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_schedule_interview_invalid_submission_status():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.DRAFT)
+    submission.interviews = []
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.schedule_interview(
+            public_id=submission.public_id,
+            round_number=1,
+            interview_type=InterviewType.TECHNICAL,
+            scheduled_at=datetime(2026, 9, 20, 15, 0),
+            timezone="Asia/Kolkata",
+            interviewer="Interviewer",
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Cannot schedule an interview" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_schedule_interview_invalid_round():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.UNDER_REVIEW)
+    submission.interviews = [
+        SimpleNamespace(round_number=1)
+    ]
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.schedule_interview(
+            public_id=submission.public_id,
+            round_number=3,
+            interview_type=InterviewType.TECHNICAL,
+            scheduled_at=datetime(2026, 9, 20, 15, 0),
+            timezone="Asia/Kolkata",
+            interviewer="Interviewer",
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Expected round 2" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_create_offer_rejects_non_positive_rate():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.INTERVIEW_COMPLETED)
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.create_offer(
+            public_id=submission.public_id,
+            offered_rate=Decimal("0"),
+            currency="USD",
+            start_date=date(2026, 10, 1),
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "must be positive" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_create_offer_rejects_expiration_before_start():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.INTERVIEW_COMPLETED)
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.create_offer(
+            public_id=submission.public_id,
+            offered_rate=Decimal("85"),
+            currency="USD",
+            start_date=date(2026, 10, 10),
+            expiration_date=date(2026, 10, 1),
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "expiration date cannot be before" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_create_offer_rejects_wrong_submission_status():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.SUBMITTED)
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.create_offer(
+            public_id=submission.public_id,
+            offered_rate=Decimal("85"),
+            currency="USD",
+            start_date=date(2026, 10, 1),
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "INTERVIEW_COMPLETED" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_create_placement_rejects_invalid_margin():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.OFFER_ACCEPTED)
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.create_placement(
+            public_id=submission.public_id,
+            started_on=date(2026, 10, 1),
+            ended_on=None,
+            billing_rate=Decimal("80"),
+            pay_rate=Decimal("80"),
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Billing margins are invalid" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_create_placement_rejects_wrong_submission_status():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.INTERVIEW_COMPLETED)
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.create_placement(
+            public_id=submission.public_id,
+            started_on=date(2026, 10, 1),
+            ended_on=None,
+            billing_rate=Decimal("120"),
+            pay_rate=Decimal("90"),
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "OFFER_ACCEPTED" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_create_placement_rejects_end_date_before_start():
+    service, _ = make_service()
+
+    submission = make_submission(SubmissionStatus.OFFER_ACCEPTED)
+    service.repo.get_by_public_id.return_value = submission
+
+    with pytest.raises(AppException) as exc_info:
+        await service.create_placement(
+            public_id=submission.public_id,
+            started_on=date(2026, 10, 10),
+            ended_on=date(2026, 10, 1),
+            billing_rate=Decimal("120"),
+            pay_rate=Decimal("90"),
+            user_id=99,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "end date cannot be before" in exc_info.value.message

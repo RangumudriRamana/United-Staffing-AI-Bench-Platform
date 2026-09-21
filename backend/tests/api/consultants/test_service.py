@@ -335,6 +335,34 @@ async def test_update_consultant_duplicate_email(service):
     assert exc.value.status_code == 400
     assert "Email is already registered" in exc.value.message
 
+@pytest.mark.asyncio
+async def test_update_consultant_new_email_not_registered(service):
+    consultant = make_consultant(email="old@example.com")
+    service.repo.get_by_public_id.return_value = consultant
+    service.repo.exists_by_email.return_value = False
+
+    payload = MagicMock()
+    payload.model_dump.return_value = {
+        "email": "new@example.com",
+    }
+
+    service.db.flush = AsyncMock()
+    service.db.commit = AsyncMock()
+    service.db.refresh = AsyncMock()
+
+    result = await service.update_consultant(
+        consultant.public_id,
+        payload,
+        current_user_id=20,
+    )
+
+    assert result is consultant
+    assert consultant.email == "new@example.com"
+    service.repo.exists_by_email.assert_awaited_once_with(
+        "new@example.com"
+    )
+    service.db.commit.assert_awaited_once()
+
 
 @pytest.mark.asyncio
 async def test_update_consultant_blocks_status_changes(service):
@@ -548,6 +576,30 @@ async def test_transition_marketing_status_not_available(service):
     assert consultant.availability_status == AvailabilityStatus.NOT_AVAILABLE
     assert consultant.availability_date is None
 
+@pytest.mark.asyncio
+async def test_transition_marketing_status_interviewing_preserves_availability(
+    service,
+):
+    consultant = make_consultant(
+        marketing_status=MarketingStatus.MARKETING_ACTIVE,
+        availability_status=AvailabilityStatus.AVAILABLE_NOW,
+    )
+    service.repo.get_by_public_id.return_value = consultant
+
+    service.db.execute = AsyncMock()
+    service.db.flush = AsyncMock()
+    service.db.commit = AsyncMock()
+    service.db.refresh = AsyncMock()
+
+    result = await service.transition_marketing_status(
+        consultant.public_id,
+        MarketingStatus.INTERVIEWING,
+        changed_by_user_id=10,
+    )
+
+    assert result is consultant
+    assert consultant.marketing_status == MarketingStatus.INTERVIEWING
+    assert consultant.availability_status == AvailabilityStatus.AVAILABLE_NOW
 
 @pytest.mark.asyncio
 async def test_transition_marketing_status_commit_false(service):

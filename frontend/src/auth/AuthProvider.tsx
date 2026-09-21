@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { AuthContext } from "./AuthContext";
 import type { User } from "./types";
+import authService from "@/services/auth.service";
 
 interface Props {
   children: ReactNode;
@@ -15,31 +16,53 @@ export default function AuthProvider({ children }: Props) {
     !!localStorage.getItem("access_token"),
   );
 
+  const [isLoading, setIsLoading] = useState(
+    !!localStorage.getItem("access_token"),
+  );
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    authService
+      .getCurrentUser()
+      .then((currentUser) => {
+        setUser(currentUser);
+        setAuthenticated(true);
+      })
+      .catch(() => {
+        localStorage.removeItem("access_token");
+        setUser(null);
+        setAuthenticated(false);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
-
       isAuthenticated,
+      isLoading,
 
-      isLoading: false,
-
-      login(token: string, user: User) {
+      login(token: string, loggedInUser: User) {
         localStorage.setItem("access_token", token);
-
-        setUser(user);
-
+        setUser(loggedInUser);
         setAuthenticated(true);
       },
 
       logout() {
         localStorage.removeItem("access_token");
-
         setUser(null);
-
         setAuthenticated(false);
       },
     }),
-    [user, isAuthenticated],
+    [user, isAuthenticated, isLoading],
   );
 
   return (

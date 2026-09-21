@@ -349,6 +349,50 @@ async def test_assign_required_document_success(service):
 
     service.db.commit.assert_awaited_once()
 
+@pytest.mark.asyncio
+async def test_assign_technology_continues_when_existing_technology_is_different(
+    service,
+):
+    requirement = make_requirement()
+
+    existing_tech = MagicMock()
+    existing_tech.technology_id = 99
+    requirement.technologies = [existing_tech]
+
+    service.repo.get_by_public_id.return_value = requirement
+
+    result = await service.assign_technology(
+        requirement.public_id,
+        technology_id=5,
+        minimum_years=3,
+        mandatory=True,
+    )
+
+    assert result.requirement_id == requirement.id
+    assert result.technology_id == 5
+    service.db.commit.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_assign_required_document_continues_when_existing_document_is_different(
+    service,
+):
+    requirement = make_requirement()
+
+    existing_doc = MagicMock()
+    existing_doc.document_type = DocumentType.PASSPORT
+    requirement.documents = [existing_doc]
+
+    service.repo.get_by_public_id.return_value = requirement
+
+    result = await service.assign_required_document(
+        requirement.public_id,
+        DocumentType.RESUME,
+        mandatory=True,
+    )
+
+    assert result.requirement_id == requirement.id
+    assert result.document_type == DocumentType.RESUME
+    service.db.commit.assert_awaited_once()
 
 # ---------------------------------------------------------------------------
 # reassign_owner
@@ -460,3 +504,131 @@ async def test_list_requirements_delegates_to_repository(service):
         pagination,
         sort,
     )
+
+@pytest.mark.asyncio
+async def test_create_requirement_duplicate_job_code(service):
+    payload = {
+        "job_title": "Java Developer",
+        "job_code": "REQ-DUP-001",
+        "rate_min": 70,
+        "rate_max": 90,
+    }
+
+    service.db.scalar.return_value = make_requirement()
+
+    with pytest.raises(AppException) as exc:
+        await service.create_requirement(payload, current_user_id=10)
+
+    assert exc.value.status_code == 409
+    assert "already exists" in exc.value.message
+    service.repo.create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_create_requirement_rejects_invalid_billing_range(service):
+    payload = {
+        "job_title": "Java Developer",
+        "job_code": "REQ-RATE-001",
+        "rate_min": 100,
+        "rate_max": 80,
+    }
+
+    service.db.scalar.return_value = None
+
+    with pytest.raises(AppException) as exc:
+        await service.create_requirement(payload, current_user_id=10)
+
+    assert exc.value.status_code == 400
+    assert "cannot cross maximum boundaries" in exc.value.message
+    service.repo.create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_transition_requirement_not_found(service):
+    service.repo.get_by_public_id.return_value = None
+
+    with pytest.raises(AppException) as exc:
+        await service.transition_requirement_status(
+            uuid4(),
+            RequirementStatus.OPEN,
+            user_id=20,
+        )
+
+    assert exc.value.status_code == 404
+    assert exc.value.message == "Requirement record not found."
+
+
+@pytest.mark.asyncio
+async def test_transition_requirement_invalid_status(service):
+    requirement = make_requirement(status=RequirementStatus.DRAFT)
+    service.repo.get_by_public_id.return_value = requirement
+
+    with pytest.raises(AppException) as exc:
+        await service.transition_requirement_status(
+            requirement.public_id,
+            RequirementStatus.FILLED,
+            user_id=20,
+        )
+
+    assert exc.value.status_code == 400
+    assert "unauthorized" in exc.value.message
+
+
+@pytest.mark.asyncio
+async def test_assign_technology_rejects_negative_experience(service):
+    requirement = make_requirement()
+    service.repo.get_by_public_id.return_value = requirement
+
+    with pytest.raises(AppException) as exc:
+        await service.assign_technology(
+            requirement.public_id,
+            technology_id=5,
+            minimum_years=-1,
+            mandatory=True,
+        )
+
+    assert exc.value.status_code == 400
+    assert "negative values" in exc.value.message
+    service.db.commit.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_assign_technology_skips_non_matching_existing_technology(service):
+    requirement = make_requirement()
+
+    existing_tech = MagicMock()
+    existing_tech.technology_id = 99
+    requirement.technologies = [existing_tech]
+
+    service.repo.get_by_public_id.return_value = requirement
+
+    result = await service.assign_technology(
+        requirement.public_id,
+        technology_id=5,
+        minimum_years=4,
+        mandatory=True,
+    )
+
+    assert result.technology_id == 5
+    assert result.minimum_years == 4
+    service.db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_assign_required_document_skips_non_matching_existing_document(service):
+    requirement = make_requirement()
+
+    existing_doc = MagicMock()
+    existing_doc.document_type = DocumentType.WORK_AUTHORIZATION
+    requirement.documents = [existing_doc]
+
+    service.repo.get_by_public_id.return_value = requirement
+
+    result = await service.assign_required_document(
+        requirement.public_id,
+        DocumentType.RESUME,
+        mandatory=True,
+    )
+
+    assert result.document_type == DocumentType.RESUME
+    assert result.mandatory is True
+    service.db.commit.assert_awaited_once()

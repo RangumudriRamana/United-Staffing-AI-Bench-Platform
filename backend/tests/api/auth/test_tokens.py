@@ -42,7 +42,19 @@ def test_decode_access_token_rejects_tampered_token():
     subject = uuid4()
 
     token, _ = create_access_token(subject)
-    tampered_token = token[:-1] + ("a" if token[-1] != "a" else "b")
+
+    header, payload, signature = token.split(".")
+
+    signature_bytes = jwt.utils.base64url_decode(signature.encode())
+    tampered_signature_bytes = bytes(
+        [signature_bytes[0] ^ 0x01]
+    ) + signature_bytes[1:]
+
+    tampered_signature = jwt.utils.base64url_encode(
+        tampered_signature_bytes
+    ).decode()
+
+    tampered_token = f"{header}.{payload}.{tampered_signature}"
 
     with pytest.raises(jwt.InvalidTokenError):
         decode_access_token(tampered_token)
