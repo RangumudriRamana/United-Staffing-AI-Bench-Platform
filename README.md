@@ -168,7 +168,7 @@ The system provides role-based access, consultant and vendor management, require
 
 ## Project Structure
 
-
+```text
 United-Staffing-AI-Bench-Platform/
 │
 ├── backend/
@@ -212,10 +212,11 @@ United-Staffing-AI-Bench-Platform/
 ├── .gitignore
 ├── Makefile
 └── README.md
+```
 
 ---
 
-## Development
+## Developmentcls
 
 ### Prerequisites
 
