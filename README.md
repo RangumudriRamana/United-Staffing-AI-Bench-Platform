@@ -217,20 +217,20 @@ United-Staffing-AI-Bench-Platform/
 
 ## Development
 
-# Prerequisites
+### Prerequisites
 
  - Docker Desktop
  - Git
  - Node.js (for frontend development when running outside Docker)
  - Python 3.x (for backend development when running outside Docker)
 
-# Start the Development Environment
+## Start the Development Environment
 
 ```bash
 docker compose up --build
 ```
 
-# Stop the Development Environment
+## Stop the Development Environment
 
 ```bash
 docker compose down
@@ -320,7 +320,8 @@ The project includes:
 
 ## Project Status
 
-# Completed
+### Completed
+
  - Backend foundation
  - Frontend foundation
  - Authentication
